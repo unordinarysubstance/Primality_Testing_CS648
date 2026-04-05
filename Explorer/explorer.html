@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Miller–Rabin vs AKS — Interactive Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Libre Baskerville:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#ffffff;--bg-secondary:#f5f4f0;--text:#1a1a18;--text-secondary:#6b6b67;
+  --border:rgba(0,0,0,0.12);--border-md:rgba(0,0,0,0.22);
+  --mr:#1D9E75;--mr-light:#1D9E7514;--mr-dark:#0F6E56;--mr-border:#1D9E7540;
+  --aks:#D85A30;--aks-light:#D85A3014;--aks-dark:#993C1D;--aks-border:#D85A3040;
+  --neutral:#B4B2A9;--radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1a;--bg-secondary:#252522;--text:#f0ede6;--text-secondary:#9a9994;
+  --border:rgba(255,255,255,0.1);--border-md:rgba(255,255,255,0.2);--neutral:#555551;
+}}
+body{font-family:'Libre Baskerville',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:3rem 1.5rem;display:flex;align-items:flex-start;justify-content:center;}
+.container{width:100%;max-width:880px;}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);margin-bottom:.5rem;}
+h1{font-size:30px;font-weight:700;line-height:1.2;margin-bottom:.4rem;}
+.subtitle{font-size:13px;color:var(--text-secondary);margin-bottom:2rem;line-height:1.6;}
+.tab-nav{display:flex;border-bottom:1px solid var(--border);margin-bottom:2.5rem;gap:0;overflow-x:auto;}
+.tab-btn{padding:10px 20px;font-size:13px;font-weight:500;font-family:'Libre Baskerville',sans-serif;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;white-space:nowrap;flex-shrink:0;}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--text);}
+.tab-btn:hover:not(.active){color:var(--text);}
+.panel{display:none;}.panel.active{display:block;}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-secondary);margin-bottom:.6rem;font-weight:500;}
+.info-box{padding:1rem 1.25rem;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--bg-secondary);font-size:12px;line-height:1.85;color:var(--text-secondary);}
+.info-box strong{color:var(--text);font-weight:500;}
+/* sliders */
+.slider-row{display:flex;align-items:center;gap:14px;margin-bottom:1rem;}
+.slider-row label{font-size:13px;color:var(--text-secondary);min-width:160px;}
+input[type=range]{flex:1;height:4px;-webkit-appearance:none;appearance:none;background:var(--border-md);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--text);cursor:pointer;transition:transform .15s;}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;min-width:56px;text-align:right;color:var(--text);}
+/* badges */
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 9px;border-radius:4px;}
+.badge-mr{background:var(--mr-light);color:var(--mr-dark);}
+.badge-aks{background:var(--aks-light);color:var(--aks-dark);}
+/* buttons */
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;font-size:13px;font-weight:500;font-family:'Libre Baskerville',sans-serif;border:none;border-radius:var(--radius);background:var(--text);color:var(--bg);cursor:pointer;transition:opacity .15s,transform .1s;margin-bottom:2rem;}
+.btn-primary:hover{opacity:.85;}.btn-primary:active{transform:scale(.98);}.btn-primary:disabled{opacity:.45;cursor:not-allowed;}
+.btn-dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0;}
+.btn-dot.running{opacity:1;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── TAB 1 ── */
+.race-track{display:flex;flex-direction:column;gap:14px;margin-bottom:1.5rem;}
+.racer{display:flex;align-items:center;gap:14px;}
+.racer-label{min-width:110px;}
+.bar-bg{flex:1;height:32px;background:var(--bg-secondary);border-radius:var(--radius);overflow:hidden;position:relative;}
+.bar-fill{height:100%;border-radius:var(--radius);transition:width .04s linear;position:relative;display:flex;align-items:center;}
+.bar-mr{background:var(--mr);}.bar-aks{background:var(--aks);}
+.bar-time{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:#fff;white-space:nowrap;position:absolute;right:10px;}
+.result-box{display:none;flex-wrap:wrap;background:var(--bg-secondary);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem;border:0.5px solid var(--border);}
+.result-item{flex:1;min-width:130px;padding:1rem 1.25rem;border-right:0.5px solid var(--border);display:flex;flex-direction:column;gap:5px;}
+.result-item:last-child{border-right:none;}
+.result-num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:500;}
+.result-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);}
+.verdict{display:none;padding:.9rem 1.1rem;border-radius:var(--radius);border:0.5px solid var(--mr-border);background:var(--mr-light);font-size:13px;line-height:1.7;color:var(--text);margin-bottom:1.5rem;}
+
+/* ── TAB 2 ── */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:2rem;}
+.metric-card{background:var(--bg-secondary);border-radius:var(--radius-lg);padding:1rem 1.25rem;display:flex;flex-direction:column;gap:5px;border:0.5px solid var(--border);}
+.metric-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:var(--text);line-height:1.3;word-break:break-all;}
+.metric-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);}
+.ebar-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.ebar-label{font-size:12px;color:var(--text-secondary);min-width:210px;line-height:1.4;}
+.ebar-track{flex:1;height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;}
+.ebar-fill{height:100%;border-radius:4px;transition:width .35s cubic-bezier(.4,0,.2,1);}
+.ebar-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary);min-width:72px;text-align:right;}
+.verdict2{padding:.9rem 1.1rem;border-radius:var(--radius);border:0.5px solid var(--mr-border);background:var(--mr-light);font-size:13px;line-height:1.7;color:var(--text);}
+
+/* ── TAB 3 (RSA) ── */
+.key-pills{display:flex;gap:8px;margin-bottom:2rem;flex-wrap:wrap;}
+.key-pill{padding:6px 16px;font-size:12px;font-weight:500;font-family:'Libre Baskerville',sans-serif;border-radius:999px;border:0.5px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;transition:all .15s;}
+.key-pill.active{background:var(--text);color:var(--bg);border-color:transparent;}
+.key-pill:hover:not(.active){color:var(--text);border-color:var(--text);}
+.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem;}
+.sim-card{border-radius:var(--radius-lg);border:0.5px solid var(--border);overflow:hidden;}
+.sim-card-hdr{padding:.75rem 1.1rem;display:flex;align-items:center;justify-content:space-between;}
+.sim-card.mr .sim-card-hdr{background:var(--mr-light);border-bottom:0.5px solid #1D9E7525;}
+.sim-card.aks .sim-card-hdr{background:var(--aks-light);border-bottom:0.5px solid #D85A3025;}
+.sim-name{font-size:13px;font-weight:500;}
+.sim-card.mr .sim-name{color:var(--mr-dark);}
+.sim-card.aks .sim-name{color:var(--aks-dark);}
+.sim-body{padding:1rem 1.1rem;background:var(--bg);}
+.pipeline{display:flex;flex-direction:column;gap:8px;margin-bottom:1rem;}
+.pipe-step{display:flex;align-items:center;gap:10px;}
+.pipe-lbl{font-size:11px;color:var(--text-secondary);min-width:80px;}
+.pipe-bg{flex:1;height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden;}
+.pipe-bar{height:100%;border-radius:3px;transition:width .06s linear;}
+.pipe-cnt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-secondary);min-width:40px;text-align:right;}
+.sim-time{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:500;margin-bottom:4px;}
+.sim-card.mr .sim-time{color:var(--mr);}
+.sim-card.aks .sim-time{color:var(--aks);}
+.sim-sublbl{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;}
+.cands-row{display:flex;align-items:baseline;gap:6px;margin-top:.6rem;}
+.cands-num{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:var(--text);}
+.cands-lbl{font-size:11px;color:var(--text-secondary);}
+.speedup-banner{display:none;margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius);background:var(--mr-light);border:0.5px solid var(--mr-border);font-size:13px;line-height:1.7;color:var(--text);}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem;}
+.stat-card{background:var(--bg-secondary);border-radius:var(--radius);padding:.8rem 1rem;display:flex;flex-direction:column;gap:4px;border:0.5px solid var(--border);}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:500;color:var(--text);}
+.stat-lbl{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;}
+
+/* ── TAB 4 (3D) ── */
+.plot-legend{display:flex;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap;}
+.plot-legend-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);}
+.plot-swatch{width:24px;height:12px;border-radius:2px;flex-shrink:0;}
+.plot-wrap{width:100%;border-radius:var(--radius-lg);overflow:hidden;border:0.5px solid var(--border);}
+#plotDiv{width:100%;height:580px;}
+.note-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:1.25rem;}
+.note-card{padding:.9rem 1.1rem;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--bg-secondary);font-size:12px;line-height:1.75;color:var(--text-secondary);}
+.note-card strong{color:var(--text);font-weight:500;}
+.note-card.mr-note{border-left:3px solid var(--mr);}
+.note-card.aks-note{border-left:3px solid var(--aks);}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="eyebrow">Primality testing — Interactive explorer</div>
+  <h1>Miller–Rabin vs AKS</h1>
+  <p class="subtitle">An interactive exploration of two landmark primality tests — speed, correctness, RSA key generation, and empirical timing surfaces.</p>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('race',this)">Live race</button>
+    <button class="tab-btn" onclick="switchTab('error',this)">Error budget</button>
+    <button class="tab-btn" onclick="switchTab('rsa',this)">RSA key generation</button>
+    <button class="tab-btn" onclick="switchTab('surface',this)">Time complexity surface</button>
+  </nav>
+
+  <!-- ═══════════ TAB 1: RACE ═══════════ -->
+  <div class="panel active" id="tab-race">
+    <div class="section-label" style="margin-bottom:1.25rem;">Parameters</div>
+    <div class="slider-row">
+      <label>Input bit-length</label>
+      <input type="range" id="r-bits" min="64" max="4096" step="64" value="512" oninput="document.getElementById('r-bits-out').textContent=this.value">
+      <span class="slider-val" id="r-bits-out">512</span>
+    </div>
+    <div class="slider-row" style="margin-bottom:1.75rem;">
+      <label>Miller–Rabin rounds (k)</label>
+      <input type="range" id="r-k" min="1" max="40" step="1" value="10" oninput="document.getElementById('r-k-out').textContent=this.value">
+      <span class="slider-val" id="r-k-out">10</span>
+    </div>
+    <button class="btn-primary" onclick="startRace()" id="race-btn"><span class="btn-dot" id="race-dot"></span>Start race</button>
+    <div class="section-label">Race</div>
+    <div class="race-track">
+      <div class="racer"><div class="racer-label"><span class="badge badge-mr">Miller–Rabin</span></div><div class="bar-bg"><div class="bar-fill bar-mr" id="bar-mr" style="width:0%"><span class="bar-time" id="time-mr"></span></div></div></div>
+      <div class="racer"><div class="racer-label"><span class="badge badge-aks">AKS</span></div><div class="bar-bg"><div class="bar-fill bar-aks" id="bar-aks" style="width:0%"><span class="bar-time" id="time-aks"></span></div></div></div>
+    </div>
+    <div class="result-box" id="race-results">
+      <div class="result-item"><span class="result-num" id="res-mr" style="color:var(--mr);">—</span><span class="result-lbl">MR operations</span></div>
+      <div class="result-item"><span class="result-num" id="res-aks" style="color:var(--aks);">—</span><span class="result-lbl">AKS operations</span></div>
+      <div class="result-item"><span class="result-num" id="res-ratio">—</span><span class="result-lbl">AKS / MR ratio</span></div>
+    </div>
+    <div class="verdict" id="race-verdict"></div>
+    <div class="info-box">
+      <strong>On complexity:</strong> AKS runs in Õ(log<sup style="font-size:9px">6</sup>n) — theoretically polynomial and deterministic. Miller–Rabin runs in O(k·log<sup style="font-size:9px">2</sup>n). AKS's hidden constant is astronomically large; the crossover lies at numbers with tens of thousands of digits — far beyond any real-world use.
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 2: ERROR ═══════════ -->
+  <div class="panel" id="tab-error">
+    <div class="section-label" style="margin-bottom:1.25rem;">Rounds (k)</div>
+    <div class="slider-row" style="margin-bottom:2rem;">
+      <label>Witnesses tested</label>
+      <input type="range" id="e-k" min="1" max="40" step="1" value="10" oninput="updateError()">
+      <span class="slider-val" id="e-k-out">10</span>
+    </div>
+    <div class="section-label">False-positive probability</div>
+    <div class="metric-grid">
+      <div class="metric-card"><div class="metric-val" id="err-prob">—</div><div class="metric-lbl">P(error) = 4<sup style="font-size:10px">−k</sup></div></div>
+      <div class="metric-card"><div class="metric-val" id="err-ratio">—</div><div class="metric-lbl">Odds of a false positive</div></div>
+    </div>
+    <div class="section-label">Compared to real-world event probabilities</div>
+    <div id="err-bars" style="margin-bottom:2rem;"></div>
+    <div class="verdict2" id="err-verdict"></div>
+  </div>
+
+  <!-- ═══════════ TAB 3: RSA ═══════════ -->
+  <div class="panel" id="tab-rsa">
+    <div class="section-label" style="margin-bottom:.75rem;">RSA key size</div>
+    <div class="key-pills">
+      <button class="key-pill" onclick="setKeySize(512,this)">512-bit</button>
+      <button class="key-pill active" onclick="setKeySize(1024,this)">1024-bit</button>
+      <button class="key-pill" onclick="setKeySize(2048,this)">2048-bit</button>
+      <button class="key-pill" onclick="setKeySize(4096,this)">4096-bit</button>
+    </div>
+    <div class="slider-row">
+      <label>Miller–Rabin rounds (k)</label>
+      <input type="range" id="rsa-k" min="1" max="40" step="1" value="20" oninput="document.getElementById('rsa-k-out').textContent=this.value">
+      <span class="slider-val" id="rsa-k-out">20</span>
+    </div>
+    <div class="slider-row" style="margin-bottom:1.75rem;">
+      <label>Tests per second (hardware)</label>
+      <input type="range" id="rsa-tps" min="1" max="100" step="1" value="20" oninput="document.getElementById('rsa-tps-out').textContent=this.value+'K'">
+      <span class="slider-val" id="rsa-tps-out">20K</span>
+    </div>
+    <button class="btn-primary" onclick="runSim()" id="rsa-btn"><span class="btn-dot" id="rsa-dot"></span>Generate keypair</button>
+    <div class="sim-grid">
+      <div class="sim-card mr">
+        <div class="sim-card-hdr"><span class="sim-name">Miller–Rabin</span><span style="font-size:10px;color:var(--mr-dark);font-weight:500;">PROBABILISTIC</span></div>
+        <div class="sim-body">
+          <div class="pipeline">
+            <div class="pipe-step"><span class="pipe-lbl">Finding p</span><div class="pipe-bg"><div class="pipe-bar" id="mr-p-bar" style="width:0%;background:var(--mr);"></div></div><span class="pipe-cnt" id="mr-p-cnt">—</span></div>
+            <div class="pipe-step"><span class="pipe-lbl">Finding q</span><div class="pipe-bg"><div class="pipe-bar" id="mr-q-bar" style="width:0%;background:var(--mr);"></div></div><span class="pipe-cnt" id="mr-q-cnt">—</span></div>
+          </div>
+          <div class="sim-time" id="mr-time">—</div>
+          <div class="sim-sublbl">estimated time</div>
+          <div class="cands-row"><span class="cands-num" id="mr-cands">—</span><span class="cands-lbl">candidates tested</span></div>
+        </div>
+      </div>
+      <div class="sim-card aks">
+        <div class="sim-card-hdr"><span class="sim-name">AKS</span><span style="font-size:10px;color:var(--aks-dark);font-weight:500;">DETERMINISTIC</span></div>
+        <div class="sim-body">
+          <div class="pipeline">
+            <div class="pipe-step"><span class="pipe-lbl">Finding p</span><div class="pipe-bg"><div class="pipe-bar" id="aks-p-bar" style="width:0%;background:var(--aks);"></div></div><span class="pipe-cnt" id="aks-p-cnt">—</span></div>
+            <div class="pipe-step"><span class="pipe-lbl">Finding q</span><div class="pipe-bg"><div class="pipe-bar" id="aks-q-bar" style="width:0%;background:var(--aks);"></div></div><span class="pipe-cnt" id="aks-q-cnt">—</span></div>
+          </div>
+          <div class="sim-time" id="aks-time">—</div>
+          <div class="sim-sublbl">estimated time</div>
+          <div class="cands-row"><span class="cands-num" id="aks-cands">—</span><span class="cands-lbl">candidates tested</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="speedup-banner" id="speedup-banner"></div>
+    <div class="stats-row" id="rsa-stats" style="display:none;">
+      <div class="stat-card"><div class="stat-val" id="stat-bits">—</div><div class="stat-lbl">Key size (bits)</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-density">—</div><div class="stat-lbl">Prime density</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-speedup" style="color:var(--mr);">—</div><div class="stat-lbl">MR speedup over AKS</div></div>
+    </div>
+    <div class="info-box">
+      <strong>How RSA prime generation works:</strong> To generate an RSA-<span id="rsa-info-bits">1024</span>-bit key, two primes p and q of ~<span id="rsa-info-half">512</span> bits each must be found. By the Prime Number Theorem, roughly 1 in every <span id="rsa-info-gap">355</span> candidates at this size is prime. Each candidate is tested with the chosen primality algorithm until both p and q are found.
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 4: SURFACE ═══════════ -->
+  <div class="panel" id="tab-surface">
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem;line-height:1.6;">Empirical timing data from benchmarks — time in microseconds as a function of both bit-length and number of iterations (k). Drag to rotate. The blue (Miller–Rabin) surface stays nearly flat; the red (AKS) surface climbs steeply with bit-length.</p>
+    <div class="plot-legend">
+      <div class="plot-legend-item"><div class="plot-swatch" style="background:linear-gradient(90deg,rgb(254,224,210),rgb(203,24,29));"></div>AKS (Deterministic)</div>
+      <div class="plot-legend-item"><div class="plot-swatch" style="background:linear-gradient(90deg,rgb(198,219,239),rgb(8,48,107));"></div>Miller–Rabin (Probabilistic)</div>
+    </div>
+    <div class="plot-wrap"><div id="plotDiv"></div></div>
+    <div class="note-grid">
+      <div class="note-card mr-note"><strong>Miller–Rabin (blue)</strong><br>Nearly flat across all bit-lengths and k values. Even at 20 bits with 36 iterations, execution stays well under 1 ms. Growth is O(k·log²n).</div>
+      <div class="note-card aks-note"><strong>AKS (red)</strong><br>Rises sharply with bit-length. The polynomial ring arithmetic in Step 5 dominates — this is the Õ(log⁶n) hidden constant made visible.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script>
+/* ── TAB SWITCHING ── */
+let plotInitialised = false;
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+  if (id === 'surface' && !plotInitialised) { initPlot(); plotInitialised = true; }
+}
+
+/* ── SHARED HELPERS ── */
+function fmt(n){if(n>=1e12)return(n/1e12).toFixed(1)+'T';if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return Math.round(n).toString();}
+function fmtTime(ms){if(ms<1)return(ms*1000).toFixed(0)+' µs';if(ms<1000)return ms.toFixed(1)+' ms';if(ms<60000)return(ms/1000).toFixed(2)+' s';if(ms<3600000)return(ms/60000).toFixed(1)+' min';return(ms/3600000).toFixed(2)+' hr';}
+
+/* ── TAB 1: RACE ── */
+let raceIv = null;
+function startRace() {
+  if (raceIv) clearInterval(raceIv);
+  const bits = parseInt(document.getElementById('r-bits').value);
+  const k    = parseInt(document.getElementById('r-k').value);
+  const mrOps = k * bits * bits, aksOps = Math.pow(bits, 4.5) * 0.8;
+  document.getElementById('race-results').style.display = 'none';
+  document.getElementById('race-verdict').style.display = 'none';
+  ['bar-mr','bar-aks'].forEach(id=>{document.getElementById(id).style.width='0%';});
+  ['time-mr','time-aks'].forEach(id=>{document.getElementById(id).textContent='';});
+  const btn=document.getElementById('race-btn'),dot=document.getElementById('race-dot');
+  btn.innerHTML='';btn.appendChild(dot);btn.appendChild(document.createTextNode(' Racing…'));
+  dot.classList.add('running');btn.disabled=true;
+  let mrCur=0,aksCur=0,mrDone=false,aksDone=false;
+  raceIv=setInterval(()=>{
+    if(!mrDone){mrCur=Math.min(mrCur+mrOps/80,mrOps);document.getElementById('bar-mr').style.width=Math.min((mrCur/aksOps)*93+2,96)+'%';document.getElementById('time-mr').textContent=fmt(mrCur);if(mrCur>=mrOps)mrDone=true;}
+    if(!aksDone){aksCur=Math.min(aksCur+aksOps/80,aksOps);document.getElementById('bar-aks').style.width=Math.min((aksCur/aksOps)*93+2,96)+'%';document.getElementById('time-aks').textContent=fmt(aksCur);if(aksCur>=aksOps)aksDone=true;}
+    if(mrDone&&aksDone){
+      clearInterval(raceIv);
+      ['bar-mr','bar-aks'].forEach(id=>document.getElementById(id).style.width='100%');
+      const ratio=Math.round(aksOps/mrOps);
+      document.getElementById('res-mr').textContent=fmt(mrOps);
+      document.getElementById('res-aks').textContent=fmt(Math.round(aksOps));
+      document.getElementById('res-ratio').textContent=ratio.toLocaleString()+'×';
+      document.getElementById('race-results').style.display='flex';
+      const v=document.getElementById('race-verdict');v.style.display='block';
+      v.innerHTML=`For a <strong>${bits}-bit</strong> number with <strong>k=${k}</strong> rounds, Miller–Rabin performs <strong>${fmt(mrOps)}</strong> operations vs AKS's <strong>${fmt(Math.round(aksOps))}</strong> — a <strong>${ratio.toLocaleString()}×</strong> difference. In RSA key generation, thousands of primes must be tested per second. This gap is decisive.`;
+      dot.classList.remove('running');btn.innerHTML='';btn.appendChild(dot);btn.appendChild(document.createTextNode(' Race again'));btn.disabled=false;
+    }
+  },30);
+}
+
+/* ── TAB 2: ERROR ── */
+const MIN_LOG=-150,MAX_LOG=0;
+function logScale(p){return Math.max(0,Math.min(100,((Math.log10(Math.max(p,1e-150))-MIN_LOG)/(MAX_LOG-MIN_LOG))*100));}
+function fmtProb(p){if(p>=0.01)return p.toFixed(4);const exp=Math.floor(Math.log10(p)),man=(p/Math.pow(10,exp)).toFixed(2);const sup={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};return man+' × 10'+String(exp).split('').map(c=>sup[c]||c).join('');}
+function fmtShort(p){if(p<1e-15)return'~10⁻'+Math.round(-Math.log10(p));return p.toExponential(1);}
+const errEvents=[
+  {label:'Random person wins lottery jackpot',p:1/292201338},
+  {label:'Cosmic ray flips a RAM bit (per operation)',p:1e-12},
+  {label:'SHA-256 birthday collision',p:Math.pow(2,-128)},
+  {label:'Miller–Rabin false positive (k rounds)',p:null,highlight:true},
+];
+function updateError(){
+  const k=parseInt(document.getElementById('e-k').value);
+  document.getElementById('e-k-out').textContent=k;
+  const p=Math.pow(4,-k);
+  document.getElementById('err-prob').textContent=fmtProb(p);
+  const inv=Math.pow(4,k);const supD='⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const kSup=String(k).split('').map(c=>supD[c]||c).join('');
+  document.getElementById('err-ratio').textContent=inv>1e24?'1 in 4'+kSup:'1 in '+Math.round(inv).toLocaleString();
+  const sec=document.getElementById('err-bars');sec.innerHTML='';
+  errEvents.forEach(ev=>{
+    const ep=ev.highlight?p:ev.p,w=logScale(ep);
+    const row=document.createElement('div');row.className='ebar-row';
+    row.innerHTML=`<div class="ebar-label">${ev.label}</div><div class="ebar-track"><div class="ebar-fill" style="width:${w.toFixed(2)}%;background:${ev.highlight?'var(--mr)':'var(--neutral)'};"></div></div><div class="ebar-val">${fmtShort(ep)}</div>`;
+    sec.appendChild(row);
+  });
+  let v='';
+  if(k<=3)v=`At k=${k}, the error (${fmtProb(p)}) is still meaningful. Real implementations use k ≥ 10.`;
+  else if(k<=15)v=`At k=${k}, Miller–Rabin's error (${fmtProb(p)}) is smaller than a cosmic ray flipping a bit in your CPU during the computation.`;
+  else if(k<=25)v=`At k=${k}, the error (${fmtProb(p)}) is far smaller than any hardware failure rate. k=20 is already considered overkill.`;
+  else v=`At k=${k}, error (${fmtProb(p)}) approaches theoretical zero. The label "probabilistic" is practically meaningless.`;
+  document.getElementById('err-verdict').innerHTML=`<strong>Verdict:</strong> ${v}`;
+}
+updateError();
+
+/* ── TAB 3: RSA ── */
+let keyBits=1024,simIv=null;
+function setKeySize(b,btn){keyBits=b;document.querySelectorAll('.key-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');updateRsaInfo();}
+function updateRsaInfo(){const half=keyBits/2,gap=Math.round(half*Math.LN2);document.getElementById('rsa-info-bits').textContent=keyBits;document.getElementById('rsa-info-half').textContent=half;document.getElementById('rsa-info-gap').textContent=gap.toLocaleString();}
+function runSim(){
+  if(simIv)clearInterval(simIv);
+  const k=parseInt(document.getElementById('rsa-k').value);
+  const primeBits=keyBits/2,avgCands=Math.round(primeBits*Math.LN2);
+  const pCands=Math.max(1,Math.round(avgCands*(0.5+Math.random())));
+  const qCands=Math.max(1,Math.round(avgCands*(0.5+Math.random())));
+  const totalCands=pCands+qCands;
+  const mrTestMs=(k*primeBits*primeBits)/(2e10)*1000;
+  const aksTestMs=Math.pow(primeBits,4.5)*0.8/(2e10)*1000;
+  const mrTotalMs=totalCands*mrTestMs,aksTotalMs=totalCands*aksTestMs;
+  ['mr-p-bar','mr-q-bar','aks-p-bar','aks-q-bar'].forEach(id=>document.getElementById(id).style.width='0%');
+  ['mr-p-cnt','mr-q-cnt','aks-p-cnt','aks-q-cnt'].forEach(id=>document.getElementById(id).textContent='—');
+  ['mr-time','aks-time'].forEach(id=>document.getElementById(id).textContent='—');
+  ['mr-cands','aks-cands'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('speedup-banner').style.display='none';
+  document.getElementById('rsa-stats').style.display='none';
+  const btn=document.getElementById('rsa-btn'),dot=document.getElementById('rsa-dot');
+  btn.innerHTML='';btn.appendChild(dot);btn.appendChild(document.createTextNode(' Generating…'));
+  dot.classList.add('running');btn.disabled=true;
+  let frame=0;
+  simIv=setInterval(()=>{
+    frame++;const t=frame/80;
+    const pProg=Math.min(t*1.3,1),qProg=Math.min(Math.max((t-0.2)*1.6,0),1);
+    ['mr-p-bar','aks-p-bar'].forEach(id=>document.getElementById(id).style.width=(pProg*100).toFixed(1)+'%');
+    ['mr-q-bar','aks-q-bar'].forEach(id=>document.getElementById(id).style.width=(qProg*100).toFixed(1)+'%');
+    ['mr-p-cnt','aks-p-cnt'].forEach(id=>document.getElementById(id).textContent=Math.round(pProg*pCands));
+    ['mr-q-cnt','aks-q-cnt'].forEach(id=>document.getElementById(id).textContent=Math.round(qProg*qCands));
+    document.getElementById('mr-time').textContent=fmtTime(mrTotalMs*t);
+    document.getElementById('aks-time').textContent=fmtTime(aksTotalMs*t);
+    if(frame>=80){
+      clearInterval(simIv);
+      ['mr-p-bar','mr-q-bar','aks-p-bar','aks-q-bar'].forEach(id=>document.getElementById(id).style.width='100%');
+      document.getElementById('mr-p-cnt').textContent=pCands;document.getElementById('mr-q-cnt').textContent=qCands;
+      document.getElementById('aks-p-cnt').textContent=pCands;document.getElementById('aks-q-cnt').textContent=qCands;
+      document.getElementById('mr-time').textContent=fmtTime(mrTotalMs);
+      document.getElementById('aks-time').textContent=fmtTime(aksTotalMs);
+      document.getElementById('mr-cands').textContent=fmt(totalCands)+' tested';
+      document.getElementById('aks-cands').textContent=fmt(totalCands)+' tested';
+      const speedup=Math.round(aksTotalMs/mrTotalMs);
+      const banner=document.getElementById('speedup-banner');banner.style.display='block';
+      banner.innerHTML=`Miller–Rabin generated this RSA-${keyBits} keypair in <strong>${fmtTime(mrTotalMs)}</strong> — <strong>${speedup.toLocaleString()}× faster</strong> than AKS (${fmtTime(aksTotalMs)}). Both algorithms tested the same <strong>${fmt(totalCands)}</strong> candidates; the difference is purely per-test cost.`;
+      document.getElementById('stat-bits').textContent=keyBits;
+      document.getElementById('stat-density').textContent='~'+(1/avgCands*100).toFixed(2)+'%';
+      document.getElementById('stat-speedup').textContent=speedup.toLocaleString()+'×';
+      document.getElementById('rsa-stats').style.display='grid';
+      dot.classList.remove('running');btn.innerHTML='';btn.appendChild(dot);btn.appendChild(document.createTextNode(' Generate again'));btn.disabled=false;
+    }
+  },30);
+}
+updateRsaInfo();
+
+/* ── TAB 4: 3D SURFACE ── */
+function initPlot(){
+  const xBitLen=[4,6,8,10,12,14,16,18,20];
+  const yIter=[1,6,11,16,21,26,31,36];
+  const zAKS=[
+    [29902,70185,102183,107962,161701,241460,313214,396469,519002],
+    [1095,70027,108846,151572,178519,219742,293561,392459,507155],
+    [642,57528,98404,100627,153098,221536,307278,380308,503496],
+    [560,55443,96429,99813,152635,220304,303295,385106,504103],
+    [464,57267,104964,99710,153163,237037,293610,387727,507652],
+    [489,59921,106330,99272,157140,216572,303149,384358,502312],
+    [507,56852,62176,99703,153829,217397,296070,387902,509521],
+    [501,81271,61619,105399,155411,220836,321690,380691,498463],
+  ];
+  const zMR=[
+    [1225,478,492,516,618,573,649,1101,700],
+    [290,408,490,405,447,452,504,570,531],
+    [158,314,487,375,426,405,436,535,467],
+    [165,296,452,370,345,390,415,508,455],
+    [192,307,370,378,328,384,410,489,452],
+    [174,249,370,308,335,383,447,535,455],
+    [186,288,356,408,332,375,393,476,449],
+    [174,291,239,300,332,369,393,497,467],
+  ];
+  const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const paperBg=isDark?'#1c1c1a':'#ffffff';
+  const plotBg=isDark?'#252522':'#f5f4f0';
+  const gridCol=isDark?'#3a3a38':'#ffffff';
+  const textCol=isDark?'#9a9994':'#6b6b67';
+  Plotly.newPlot('plotDiv',[
+    {type:'surface',name:'AKS',x:xBitLen,y:yIter,z:zAKS,opacity:0.82,showscale:false,
+     colorscale:[[0,'rgb(255,245,240)'],[0.125,'rgb(254,224,210)'],[0.25,'rgb(252,187,161)'],[0.375,'rgb(252,146,114)'],[0.5,'rgb(251,106,74)'],[0.625,'rgb(239,59,44)'],[0.75,'rgb(203,24,29)'],[0.875,'rgb(165,15,21)'],[1,'rgb(103,0,13)']],
+     hovertemplate:'<b>AKS</b><br>Bit Length: %{x}<br>Iterations: %{y}<br>Time: %{z} µs<extra></extra>'},
+    {type:'surface',name:'Miller–Rabin',x:xBitLen,y:yIter,z:zMR,opacity:0.9,showscale:false,
+     colorscale:[[0,'rgb(247,251,255)'],[0.125,'rgb(222,235,247)'],[0.25,'rgb(198,219,239)'],[0.375,'rgb(158,202,225)'],[0.5,'rgb(107,174,214)'],[0.625,'rgb(66,146,198)'],[0.75,'rgb(33,113,181)'],[0.875,'rgb(8,81,156)'],[1,'rgb(8,48,107)']],
+     hovertemplate:'<b>Miller–Rabin</b><br>Bit Length: %{x}<br>Iterations: %{y}<br>Time: %{z} µs<extra></extra>'},
+  ],{
+    paper_bgcolor:paperBg,plot_bgcolor:plotBg,
+    margin:{l:0,r:0,b:0,t:10},height:580,
+    font:{family:"'Libre Baskerville',sans-serif",color:textCol},
+    scene:{
+      camera:{eye:{x:1.5,y:-1.5,z:0.5}},
+      bgcolor:plotBg,
+      xaxis:{title:{text:'Bit Length (b)',font:{size:11}},backgroundcolor:plotBg,gridcolor:gridCol,linecolor:gridCol,showbackground:true,tickfont:{size:10}},
+      yaxis:{title:{text:'Iterations (k)',font:{size:11}},backgroundcolor:plotBg,gridcolor:gridCol,linecolor:gridCol,showbackground:true,tickfont:{size:10}},
+      zaxis:{title:{text:'Time (µs)',font:{size:11}},backgroundcolor:plotBg,gridcolor:gridCol,linecolor:gridCol,showbackground:true,tickfont:{size:10}},
+    },
+  },{responsive:true,displayModeBar:true,modeBarButtonsToRemove:['toImage'],displaylogo:false});
+}
+</script>
+</body>
+</html>
