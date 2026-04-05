@@ -9,7 +9,7 @@
 #include <ctime>
 
 // ============================================================================
-// AKS IMPLEMENTATION (From your aks_implementation.cpp)
+// AKS IMPLEMENTATION (From aks_implementation.cpp)
 // ============================================================================
 
 bool perfectPower(const mpz_class& n) {
@@ -124,7 +124,7 @@ bool is_prime_aks(mpz_class n) {
 
 
 // ============================================================================
-// MILLER-RABIN IMPLEMENTATION (From your miller_rabin.cpp)
+// MILLER-RABIN IMPLEMENTATION (From miller_rabin.cpp)
 // ============================================================================
 
 void mod_exp(mpz_t result, const mpz_t base, const mpz_t exp, const mpz_t mod) {
@@ -289,8 +289,7 @@ void run_benchmark(int bit_length, bool test_aks = false) {
 int main() {
     std::cout << "RSA Prime Generation Benchmark\n\n";
 
-    // We start with extremely small sizes because your AKS algorithm 
-    // calculates polynomial expansions without Fast Fourier Transforms (FFT).
+    // We start with extremely small sizes
     
     run_benchmark(16, true);  // 16-bit: AKS might take a few seconds
     
